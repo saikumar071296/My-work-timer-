@@ -4,79 +4,65 @@ from datetime import datetime
 import os
 
 # App Setup
-st.set_page_config(page_title="Work Timer", page_icon="⏱️", layout="centered")
+st.set_page_config(page_title="Work Timer", page_icon="⏱️")
 st.title("👨‍🍳 Shift Tracker")
 
 # File to save data
 SAVE_FILE = "work_hours.csv"
-STATUS_FILE = "current_status.txt"
 
-# Load existing history
+# Load existing data
 if os.path.exists(SAVE_FILE):
     df = pd.read_csv(SAVE_FILE)
 else:
     df = pd.DataFrame(columns=["Date", "Restaurant", "Start Time", "End Time", "Total Hours"])
 
-# Check if there is an active shift saved on the server
-active_start = None
-active_restaurant = "Bath & Rose"
-
-if os.path.exists(STATUS_FILE):
-    with open(STATUS_FILE, "r") as f:
-        data = f.read().split(",")
-        if len(data) == 2:
-            active_start = datetime.fromisoformat(data[0])
-            active_restaurant = data[1]
+# Tracking Logic
+if "start_time" not in st.session_state:
+    st.session_state.start_time = None
 
 # Restaurant Selection
-restaurant_list = ["Bath & Rose", "Courtyard Hotel", "Butter and Rush"]
-selected_restaurant = st.selectbox("Select Restaurant:", restaurant_list, disabled=(active_start is not None))
+restaurant_list = ["crepes & bol ", "Residence Hotel", "crepe ville"]
+selected_restaurant = st.selectbox("Select Restaurant:", restaurant_list)
 
-st.divider()
+col1, col2 = st.columns(2)
 
-if active_start is None:
-    # CLOCK IN MODE
-    if st.button("🚀 Start Work", use_container_width=True, type="primary"):
-        now = datetime.now()
-        with open(STATUS_FILE, "w") as f:
-            f.write(f"{now.isoformat()},{selected_restaurant}")
-        st.rerun()
-else:
-    # CLOCK OUT MODE
-    st.warning(f"Currently Working at: **{active_restaurant}**")
-    st.info(f"Started at: {active_start.strftime('%I:%M %p')}")
-    
-    if st.button("🛑 End Work", use_container_width=True, type="secondary"):
-        now = datetime.now()
-        duration = now - active_start
-        hours = round(duration.total_seconds() / 3600, 2)
-        
-        # Save to History
-        new_entry = {
-            "Date": now.strftime("%Y-%m-%d"),
-            "Restaurant": active_restaurant,
-            "Start Time": active_start.strftime("%H:%M:%S"),
-            "End Time": now.strftime("%H:%M:%S"),
-            "Total Hours": hours
-        }
-        df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
-        df.to_csv(SAVE_FILE, index=False)
-        
-        # Clear Active Status
-        if os.path.exists(STATUS_FILE):
-            os.remove(STATUS_FILE)
+with col1:
+    if st.button("🚀 Start Work", use_container_width=True):
+        st.session_state.start_time = datetime.now()
+        st.session_state.current_restaurant = selected_restaurant
+        st.success(f"Started at {selected_restaurant}: {st.session_state.start_time.strftime('%H:%M:%S')}")
+
+with col2:
+    if st.button("🛑 End Work", use_container_width=True):
+        if st.session_state.start_time:
+            end_time = datetime.now()
+            duration = end_time - st.session_state.start_time
+            hours = round(duration.total_seconds() / 3600, 2)
             
-        st.balloons()
-        st.success(f"Shift Saved! Total: {hours} hours")
-        st.rerun()
+            # Save to Dataframe
+            new_entry = {
+                "Date": datetime.now().strftime("%Y-%m-%d"),
+                "Restaurant": st.session_state.current_restaurant,
+                "Start Time": st.session_state.start_time.strftime("%H:%M:%S"),
+                "End Time": end_time.strftime("%H:%M:%S"),
+                "Total Hours": hours
+            }
+            df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
+            df.to_csv(SAVE_FILE, index=False)
+            
+            st.session_state.start_time = None
+            st.balloons()
+            st.info(f"Shift Ended at {st.session_state.current_restaurant}! Total: {hours} hours")
+        else:
+            st.error("Please press Start first!")
 
-# Display History Table
+# Display History
 st.divider()
-st.subheader("Last 5 Shifts")
-st.dataframe(df.tail(5), use_container_width=True)
+st.subheader("Previous Shifts")
+st.dataframe(df.tail(10), use_container_width=True)
 
-# Monthly Summary
+# Calculate Totals per Restaurant
 if not df.empty:
-    st.subheader("Total Hours Earned")
+    st.subheader("Summary by Restaurant")
     summary = df.groupby("Restaurant")["Total Hours"].sum().reset_index()
     st.table(summary)
