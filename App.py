@@ -21,7 +21,7 @@ if "start_time" not in st.session_state:
     st.session_state.start_time = None
 
 # Restaurant Selection
-restaurant_list = ["Bath & Rose", "Courtyard Hotel", "Butter and Rush"]
+restaurant_list = ["crepe & bol", "Courtyard Hotel", "crepe ville"]
 selected_restaurant = st.selectbox("Select Restaurant:", restaurant_list)
 
 col1, col2 = st.columns(2)
