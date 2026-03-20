@@ -14,18 +14,23 @@ SAVE_FILE = "work_hours.csv"
 if os.path.exists(SAVE_FILE):
     df = pd.read_csv(SAVE_FILE)
 else:
-    df = pd.DataFrame(columns=["Date", "Start Time", "End Time", "Total Hours"])
+    df = pd.DataFrame(columns=["Date", "Restaurant", "Start Time", "End Time", "Total Hours"])
 
 # Tracking Logic
 if "start_time" not in st.session_state:
     st.session_state.start_time = None
+
+# Restaurant Selection
+restaurant_list = ["Bath & Rose", "Courtyard Hotel", "Butter and Rush"]
+selected_restaurant = st.selectbox("Select Restaurant:", restaurant_list)
 
 col1, col2 = st.columns(2)
 
 with col1:
     if st.button("🚀 Start Work", use_container_width=True):
         st.session_state.start_time = datetime.now()
-        st.success(f"Started at: {st.session_state.start_time.strftime('%H:%M:%S')}")
+        st.session_state.current_restaurant = selected_restaurant
+        st.success(f"Started at {selected_restaurant}: {st.session_state.start_time.strftime('%H:%M:%S')}")
 
 with col2:
     if st.button("🛑 End Work", use_container_width=True):
@@ -37,6 +42,7 @@ with col2:
             # Save to Dataframe
             new_entry = {
                 "Date": datetime.now().strftime("%Y-%m-%d"),
+                "Restaurant": st.session_state.current_restaurant,
                 "Start Time": st.session_state.start_time.strftime("%H:%M:%S"),
                 "End Time": end_time.strftime("%H:%M:%S"),
                 "Total Hours": hours
@@ -46,7 +52,7 @@ with col2:
             
             st.session_state.start_time = None
             st.balloons()
-            st.info(f"Shift Ended! Total: {hours} hours")
+            st.info(f"Shift Ended at {st.session_state.current_restaurant}! Total: {hours} hours")
         else:
             st.error("Please press Start first!")
 
@@ -55,7 +61,8 @@ st.divider()
 st.subheader("Previous Shifts")
 st.dataframe(df.tail(10), use_container_width=True)
 
-# Calculate Weekly Total
+# Calculate Totals per Restaurant
 if not df.empty:
-    total_week = df["Total Hours"].sum()
-    st.metric(label="Total Hours this Period", value=f"{total_week} hrs")
+    st.subheader("Summary by Restaurant")
+    summary = df.groupby("Restaurant")["Total Hours"].sum().reset_index()
+    st.table(summary)
